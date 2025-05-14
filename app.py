@@ -7,6 +7,7 @@ import faiss
 import logging
 import PyPDF2
 import time
+import torch  # Add explicit torch import
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -136,7 +137,15 @@ class DocumentStore:
 
     def __init__(self, embedding_model_name: str = "all-MiniLM-L6-v2"):
         """Initialize the document store with an embedding model"""
-        self.embedding_model = SentenceTransformer(embedding_model_name)
+        try:
+            # Try to initialize with default device
+            self.embedding_model = SentenceTransformer(embedding_model_name)
+        except NotImplementedError:
+            # Fall back to CPU if there's a device compatibility issue
+            import torch
+            device = torch.device("cpu")
+            self.embedding_model = SentenceTransformer(embedding_model_name, device=device)
+        
         self.documents = []
         self.document_embeddings = None
         self.index = None
@@ -214,7 +223,14 @@ class ReasoningModule:
         """Initialize with a reasoning model"""
         with st.spinner('Loading reasoning model...'):
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+            try:
+                # Try to initialize with default device
+                self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+            except NotImplementedError:
+                # Fall back to CPU if there's a device compatibility issue
+                import torch
+                device = torch.device("cpu")
+                self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
 
     def generate_reasoning(self, query: str, context: List[Dict[str, Any]]) -> str:
         """Generate reasoning steps for a query given context"""
@@ -277,7 +293,14 @@ class RAGReasoner:
         self.reasoning_module = reasoning_module
         with st.spinner('Loading language model...'):
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+            try:
+                # Try to initialize with default device
+                self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+            except NotImplementedError:
+                # Fall back to CPU if there's a device compatibility issue
+                import torch
+                device = torch.device("cpu")
+                self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
         self.retrieval_k = retrieval_k  # number of documents to retrieve during the search process
 
     def process_query(self, query: str) -> Dict[str, Any]:
